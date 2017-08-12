@@ -717,6 +717,7 @@ int should_autocreate_reflog(const char *refname)
 	case LOG_REFS_ALWAYS:
 		return 1;
 	case LOG_REFS_NORMAL:
+		(void) skip_namespace(refname, &refname);
 		return starts_with(refname, "refs/heads/") ||
 			starts_with(refname, "refs/remotes/") ||
 			starts_with(refname, "refs/notes/") ||
