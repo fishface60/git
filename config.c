@@ -1775,6 +1775,11 @@ int git_configset_add_file(struct config_set *cs, const char *filename)
 	return git_config_from_file(config_set_callback, filename, cs);
 }
 
+int git_configset_add_standard(struct config_set *cs, const struct config_options *opts)
+{
+	return config_with_options(config_set_callback, cs, NULL, opts);
+}
+
 int git_configset_get_value(struct config_set *cs, const char *key, const char **value)
 {
 	const struct string_list *values = NULL;
@@ -1890,7 +1895,7 @@ static void repo_read_config(struct repository *repo)
 
 	git_configset_init(repo->config);
 
-	if (config_with_options(config_set_callback, repo->config, NULL, &opts) < 0)
+	if (git_configset_add_standard(repo->config, &opts) < 0)
 		/*
 		 * config_with_options() normally returns only
 		 * zero, as most errors are fatal, and
