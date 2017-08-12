@@ -536,6 +536,7 @@ int dwim_log(const char *str, int len, unsigned char *sha1, char **log)
 
 static int is_per_worktree_ref(const char *refname)
 {
+	(void) skip_namespace(refname, &refname);
 	return !strcmp(refname, "HEAD") ||
 		starts_with(refname, "refs/bisect/");
 }
