@@ -501,6 +501,25 @@ static inline int skip_prefix_mem(const char *buf, size_t len,
 	return 0;
 }
 
+static inline int skip_namespace(const char *refname, const char **out)
+{
+	const char *c = refname;
+
+	while (skip_prefix(c, "refs/namespaces/", &c)) {
+		c = strchr(c, '/');
+		if (!c)
+			return 0;
+
+		c++;
+	}
+
+	if (c == refname)
+		return 0;
+
+	*out = c;
+	return 1;
+}
+
 /*
  * If buf ends with suffix, return 1 and subtract the length of the suffix
  * from *len. Otherwise, return 0 and leave *len untouched.
