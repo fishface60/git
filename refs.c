@@ -665,7 +665,6 @@ int refs_delete_ref(struct ref_store *refs, const char *msg,
 	struct strbuf err = STRBUF_INIT;
 
 	if (ref_type(refname) == REF_TYPE_PSEUDOREF) {
-		assert(refs == get_main_ref_store());
 		return delete_pseudoref(refname, old_sha1);
 	}
 
@@ -1004,7 +1003,6 @@ int refs_update_ref(struct ref_store *refs, const char *msg,
 	int ret = 0;
 
 	if (ref_type(refname) == REF_TYPE_PSEUDOREF) {
-		assert(refs == get_main_ref_store());
 		ret = write_pseudoref(refname, new_sha1, old_sha1, &err);
 	} else {
 		t = ref_store_transaction_begin(refs, &err);
@@ -1576,6 +1574,9 @@ static struct ref_store *ref_store_init(const char *gitdir,
 		die("BUG: reference backend %s is unknown", be_name);
 
 	refs = be->init(gitdir, flags);
+
+	namespaced_ref_store_create(gitdir, &refs);
+
 	return refs;
 }
 
