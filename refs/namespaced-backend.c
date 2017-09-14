@@ -361,7 +361,8 @@ static struct ref_iterator *make_namespaced_iterator(
 
 	iter = xcalloc(1, sizeof(*iter));
 	ref_iterator = &iter->base;
-	base_ref_iterator_init(ref_iterator, &namespaced_ref_iterator_vtable);
+	base_ref_iterator_init(ref_iterator, &namespaced_ref_iterator_vtable,
+	                       lower->ordered);
 
 	iter->lower = lower;
 	iter->prefix = prefix;
