@@ -208,21 +208,6 @@ static int namespaced_pack_refs(struct ref_store *ref_store, unsigned int flags)
 			ref_store, "pack_refs");
 	return refs->lower->be->pack_refs(refs->lower, flags);
 }
-static int namespaced_peel_ref(struct ref_store *ref_store, const char *refname,
-                               unsigned char *sha1)
-{
-	struct namespaced_ref_store *refs = namespaced_downcast(
-			ref_store, "peel_ref");
-	struct strbuf sb = STRBUF_INIT;
-	int ret;
-
-	ret = refs->lower->be->peel_ref(
-			refs->lower, add_namespace(&sb, refs, refname), sha1);
-	
-	strbuf_release(&sb);
-
-	return ret;
-}
 static int namespaced_create_symref(struct ref_store *ref_store,
                                     const char *refname,
                                     const char *target,
@@ -601,7 +586,6 @@ struct ref_storage_be refs_be_namespaced = {
 	namespaced_transaction_abort,
 	namespaced_initial_transaction_commit,
 	namespaced_pack_refs,
-	namespaced_peel_ref,
 	namespaced_create_symref,
 	namespaced_delete_refs,
 	namespaced_rename_ref,
