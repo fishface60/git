@@ -95,7 +95,7 @@ test_expect_success 'check commit-tree' '
 '
 
 test_expect_success 'check rev-list' '
-	echo $SHA >"$REAL/HEAD" &&
+	test-ref-store main update-ref "set head" HEAD $SHA 0000000000000000000000000000000000000000 0 &&
 	test "$SHA" = "$(git rev-list HEAD)"
 '
 
