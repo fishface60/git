@@ -149,7 +149,9 @@ static int namespaced_init_db(struct ref_store *ref_store, struct strbuf *err)
 	if (ret != 0)
 		return ret;
 
+#if 0
 	ret = refs_create_symref(ref_store, "HEAD", "refs/heads/master", NULL);
+#endif
 
 	return ret;
 }

@@ -230,9 +230,19 @@ static int create_default_files(const char *template_path,
 	 * Create the default symlink from ".git/HEAD" to the "master"
 	 * branch, if it does not exist yet.
 	 */
+#if 0
 	path = git_path_buf(&buf, "HEAD");
 	reinit = (!access(path, R_OK)
 		  || readlink(path, junk, sizeof(junk)-1) != -1);
+#else
+	{
+		unsigned char sha1[20];
+		int flags;
+		const char *ret;
+		ret = resolve_ref_unsafe("HEAD", RESOLVE_REF_NO_RECURSE|RESOLVE_REF_READING, sha1, &flags);
+		reinit = (ret != NULL || errno != ENOENT);
+	}
+#endif
 	if (!reinit) {
 		if (create_symref("HEAD", "refs/heads/master", NULL) < 0)
 			exit(1);
