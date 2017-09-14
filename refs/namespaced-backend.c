@@ -57,12 +57,16 @@ int namespaced_ref_store_create(const char *gitdir,
 		goto cleanup;
 	}
 
+#if 0
 	ret = git_configset_get_string(&cs, "core.namespace", &config);
 	if (ret != 0) {
 		goto cleanup;
 	}
 
 	prefix = expand_namespace(config);
+#else
+	prefix = expand_namespace("foo");
+#endif
 	assert(prefix);
 
 	refs = xcalloc(1, sizeof(*refs));
