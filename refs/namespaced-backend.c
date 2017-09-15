@@ -584,6 +584,18 @@ static int namespaced_reflog_expire(
 
 	return ret;
 }
+static const char *namespaced_render_ref(struct ref_store *ref_store,
+                                         const char *refname,
+                                         struct strbuf *result)
+{
+	struct namespaced_ref_store *refs = namespaced_downcast(
+			ref_store, "render_ref");
+	
+	if (skip_prefix(refname, refs->prefix, &refname) == 0)
+		return NULL;
+	
+	return render_ref(ref_store->parent, refname, result);
+}
 
 struct ref_storage_be refs_be_namespaced = {
 	NULL,
@@ -607,6 +619,7 @@ struct ref_storage_be refs_be_namespaced = {
 	namespaced_create_reflog,
 	namespaced_delete_reflog,
 	namespaced_reflog_expire,
+	namespaced_render_ref,
 };
 
 
