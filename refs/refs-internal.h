@@ -694,6 +694,7 @@ int namespaced_ref_store_create(const char *gitdir, struct ref_store **lower);
 struct ref_store {
 	/* The backend describing this ref_store's storage scheme: */
 	const struct ref_storage_be *be;
+	struct ref_store *parent;
 };
 
 /*
