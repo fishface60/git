@@ -2056,3 +2056,13 @@ int rename_ref(const char *oldref, const char *newref, const char *logmsg)
 {
 	return refs_rename_ref(get_main_ref_store(), oldref, newref, logmsg);
 }
+
+const char *render_ref(struct ref_store *ref_store,
+                                     const char *refname,
+                                     struct strbuf *result)
+{
+	if (ref_store == NULL)
+		return refname;
+
+	return ref_store->be->render_ref(ref_store, refname, result);
+}
