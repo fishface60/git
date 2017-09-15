@@ -325,6 +325,15 @@ static int namespaced_ref_iterator_advance(struct ref_iterator *ref_iterator)
 		iter->base.flags = iter->lower->flags;
 		assert(skip_prefix(iter->lower->refname, iter->prefix,
 		                   &iter->base.refname));
+
+		/* Pseudorefs should not be returned via iteration.
+		   files backend usually handles this by iterating from refs/,
+		   but as namespaced head is in refs we must skip it. */
+		/* TODO: Would be better to call is_pseudoref_syntax */
+		/* TODO: Perhaps prefix for iter should include the refs/ at the end! */
+		if (!starts_with(iter->base.refname, "refs/"))
+			continue;
+
 		return ITER_OK;
 	}
 
