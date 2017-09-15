@@ -77,6 +77,7 @@ int namespaced_ref_store_create(const char *gitdir,
 	base_ref_store_init(ref_store, &refs_be_namespaced);
 
 	refs->lower = *lower;
+	refs->lower->parent = ref_store;
 	*lower = ref_store;
 	refs = NULL;
 
