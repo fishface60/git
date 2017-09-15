@@ -59,6 +59,7 @@ static struct ref_store *files_ref_store_create(const char *gitdir,
 	refs->gitcommondir = strbuf_detach(&sb, NULL);
 	strbuf_addf(&sb, "%s/packed-refs", refs->gitcommondir);
 	refs->packed_ref_store = packed_ref_store_create(sb.buf, flags);
+	refs->packed_ref_store->parent = ref_store;
 	strbuf_release(&sb);
 
 	return ref_store;
