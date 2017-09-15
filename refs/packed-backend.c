@@ -1452,7 +1452,7 @@ static const char *packed_render_ref(struct ref_store *ref_store,
                                      const char *refname,
                                      struct strbuf *result)
 {
-	return render_ref(ref_store->parent, refname, result)
+	return render_ref(ref_store->parent, refname, result);
 }
 
 struct ref_storage_be refs_be_packed = {
