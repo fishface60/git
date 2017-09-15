@@ -602,7 +602,7 @@ static const char *namespaced_render_ref(struct ref_store *ref_store,
 	if (skip_prefix(refname, refs->prefix, &refname) == 0)
 		return NULL;
 	
-	return render_ref(ref_store->parent, refname, result)
+	return render_ref(ref_store->parent, refname, result);
 }
 
 struct ref_storage_be refs_be_namespaced = {
