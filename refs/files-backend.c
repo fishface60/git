@@ -2997,6 +2997,13 @@ static int files_init_db(struct ref_store *ref_store, struct strbuf *err)
 	return 0;
 }
 
+static const char *files_render_ref(struct ref_store *ref_store,
+                                    const char *refname,
+                                    struct strbuf *result)
+{
+	return render_ref(ref_store->parent, refname, result)
+}
+
 struct ref_storage_be refs_be_files = {
 	NULL,
 	"files",
@@ -3021,5 +3028,7 @@ struct ref_storage_be refs_be_files = {
 	files_reflog_exists,
 	files_create_reflog,
 	files_delete_reflog,
-	files_reflog_expire
+	files_reflog_expire,
+
+	files_render_ref
 };

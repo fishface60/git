@@ -654,6 +654,27 @@ typedef int read_raw_ref_fn(struct ref_store *ref_store,
 			    const char *refname, unsigned char *sha1,
 			    struct strbuf *referent, unsigned int *type);
 
+/*
+ * Transform a ref to how it should be rendered to the user.
+ *
+ * A ref store backend may encode refs differently to what they were input as.
+ * To avoid confusion with different refs being logged in error messages,
+ * implement render_ref to translate them.
+ *
+ * If no translation is necessary or if the translation is removing a prefix
+ * then a substring of refname may be returned.
+ * result is provided to store the result of the translation
+ * and provide lifetime ownership of the result to the caller.
+ * The result may also be statically allocated, or owned by the ref store.
+ */
+typedef const char *render_ref_fn(struct ref_store *ref_store,
+                                  const char *refname,
+                                  struct strbuf *result);
+
+const char *render_ref(struct ref_store *ref_store,
+                       const char *refname,
+                       struct strbuf *result);
+
 struct ref_storage_be {
 	struct ref_storage_be *next;
 	const char *name;
@@ -680,6 +701,8 @@ struct ref_storage_be {
 	create_reflog_fn *create_reflog;
 	delete_reflog_fn *delete_reflog;
 	reflog_expire_fn *reflog_expire;
+
+	render_ref_fn *render_ref;
 };
 
 extern struct ref_storage_be refs_be_files;

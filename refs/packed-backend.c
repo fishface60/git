@@ -1448,6 +1448,13 @@ static int packed_reflog_expire(struct ref_store *ref_store,
 	return 0;
 }
 
+static const char *packed_render_ref(struct ref_store *ref_store,
+                                     const char *refname,
+                                     struct strbuf *result)
+{
+	return render_ref(ref_store->parent, refname, result)
+}
+
 struct ref_storage_be refs_be_packed = {
 	NULL,
 	"packed",
@@ -1472,5 +1479,7 @@ struct ref_storage_be refs_be_packed = {
 	packed_reflog_exists,
 	packed_create_reflog,
 	packed_delete_reflog,
-	packed_reflog_expire
+	packed_reflog_expire,
+
+	packed_render_ref
 };
