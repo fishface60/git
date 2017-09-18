@@ -456,7 +456,7 @@ static int lock_raw_ref(struct files_ref_store *refs,
 			struct strbuf *err)
 {
 	struct ref_lock *lock;
-	struct strbuf ref_file = STRBUF_INIT;
+	struct strbuf ref_file = STRBUF_INIT, tmpbuf = STRBUF_INIT;
 	int attempts_remaining = 3;
 	int ret = TRANSACTION_GENERIC_ERROR;
 
@@ -495,7 +495,7 @@ retry:
 				 */
 				strbuf_reset(err);
 				strbuf_addf(err, "unable to resolve reference '%s'",
-					    refname);
+					    render_ref(&refs->base, refname, &tmpbuf));
 			} else {
 				/*
 				 * The error message set by
@@ -556,7 +556,7 @@ retry:
 			if (mustexist) {
 				/* Garden variety missing reference. */
 				strbuf_addf(err, "unable to resolve reference '%s'",
-					    refname);
+					    render_ref(&refs->base, refname, &tmpbuf));
 				goto error_return;
 			} else {
 				/*
@@ -588,7 +588,7 @@ retry:
 			if (mustexist) {
 				/* Garden variety missing reference. */
 				strbuf_addf(err, "unable to resolve reference '%s'",
-					    refname);
+					    render_ref(&refs->base, refname, &tmpbuf));
 				goto error_return;
 			} else if (remove_dir_recursively(&ref_file,
 							  REMOVE_DIR_EMPTY_ONLY)) {
@@ -609,18 +609,20 @@ retry:
 					 * contain.
 					 */
 					strbuf_addf(err, "there is a non-empty directory '%s' "
-						    "blocking reference '%s'",
-						    ref_file.buf, refname);
+						    "blocking reference '%s'", ref_file.buf,
+						    render_ref(&refs->base, refname, &tmpbuf));
 					goto error_return;
 				}
 			}
 		} else if (errno == EINVAL && (*type & REF_ISBROKEN)) {
 			strbuf_addf(err, "unable to resolve reference '%s': "
-				    "reference broken", refname);
+				    "reference broken",
+				    render_ref(&refs->base, refname, &tmpbuf));
 			goto error_return;
 		} else {
 			strbuf_addf(err, "unable to resolve reference '%s': %s",
-				    refname, strerror(errno));
+				    render_ref(&refs->base, refname, &tmpbuf),
+				    strerror(errno));
 			goto error_return;
 		}
 
@@ -2221,29 +2223,36 @@ static const char *original_update_refname(struct ref_update *update)
  * everything is OK, return 0; otherwise, write an error message to
  * err and return -1.
  */
-static int check_old_oid(struct ref_update *update, struct object_id *oid,
+static int check_old_oid(struct ref_store *refs, struct ref_update *update, struct object_id *oid,
 			 struct strbuf *err)
 {
+	struct strbuf sb = STRBUF_INIT;
+	const char *refname;
+
 	if (!(update->flags & REF_HAVE_OLD) ||
 		   !oidcmp(oid, &update->old_oid))
 		return 0;
 
+	refname = original_update_refname(update);
+	refname = render_ref(refs, refname, &sb);
+
 	if (is_null_oid(&update->old_oid))
 		strbuf_addf(err, "cannot lock ref '%s': "
 			    "reference already exists",
-			    original_update_refname(update));
+			    refname);
 	else if (is_null_oid(oid))
 		strbuf_addf(err, "cannot lock ref '%s': "
 			    "reference is missing but expected %s",
-			    original_update_refname(update),
+			    refname,
 			    oid_to_hex(&update->old_oid));
 	else
 		strbuf_addf(err, "cannot lock ref '%s': "
 			    "is at %s but expected %s",
-			    original_update_refname(update),
+			    refname,
 			    oid_to_hex(oid),
 			    oid_to_hex(&update->old_oid));
 
+	strbuf_release(&sb);
 	return -1;
 }
 
@@ -2291,11 +2300,15 @@ static int lock_ref_for_update(struct files_ref_store *refs,
 			   &update->type, err);
 	if (ret) {
 		char *reason;
+		struct strbuf refbuf = STRBUF_INIT;
+		const char *refname = original_update_refname(update);
+		refname = render_ref(&refs->base, refname, &refbuf);
 
 		reason = strbuf_detach(err, NULL);
 		strbuf_addf(err, "cannot lock ref '%s': %s",
-			    original_update_refname(update), reason);
+			    refname, reason);
 		free(reason);
+		strbuf_release(&refbuf);
 		return ret;
 	}
 
@@ -2312,12 +2325,17 @@ static int lock_ref_for_update(struct files_ref_store *refs,
 					       referent.buf, 0,
 					       lock->old_oid.hash, NULL)) {
 				if (update->flags & REF_HAVE_OLD) {
+					struct strbuf refbuf = STRBUF_INIT;
+					const char *refname = original_update_refname(update);
+					refname = render_ref(&refs->base, refname, &refbuf);
 					strbuf_addf(err, "cannot lock ref '%s': "
 						    "error reading reference",
-						    original_update_refname(update));
+						    refname);
+					strbuf_release(&refbuf);
 					return -1;
 				}
-			} else if (check_old_oid(update, &lock->old_oid, err)) {
+			} else if (check_old_oid(&refs->base, update,
+						 &lock->old_oid, err)) {
 				return TRANSACTION_GENERIC_ERROR;
 			}
 		} else {
@@ -2337,7 +2355,7 @@ static int lock_ref_for_update(struct files_ref_store *refs,
 	} else {
 		struct ref_update *parent_update;
 
-		if (check_old_oid(update, &lock->old_oid, err))
+		if (check_old_oid(&refs->base, update, &lock->old_oid, err))
 			return TRANSACTION_GENERIC_ERROR;
 
 		/*
@@ -2896,7 +2914,11 @@ static int files_reflog_expire(struct ref_store *ref_store,
 				   NULL, NULL, REF_NODEREF,
 				   &type, &err);
 	if (!lock) {
-		error("cannot lock ref '%s': %s", refname, err.buf);
+		struct strbuf refbuf = STRBUF_INIT;
+		error("cannot lock ref '%s': %s",
+		      render_ref(ref_store, refname, &refbuf),
+		      err.buf);
+		strbuf_release(&refbuf);
 		strbuf_release(&err);
 		return -1;
 	}
