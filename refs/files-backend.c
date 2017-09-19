@@ -2521,7 +2521,7 @@ static int files_transaction_prepare(struct ref_store *ref_store,
 	 * head_ref within the transaction, then split_head_update()
 	 * arranges for the reflog of HEAD to be updated, too.
 	 */
-	head_ref = refs_resolve_refdup(ref_store, "HEAD",
+	head_ref = refs_resolve_refdup(ref_store_top(ref_store), "HEAD",
 				       RESOLVE_REF_NO_RECURSE,
 				       head_oid.hash, &head_type);
 
