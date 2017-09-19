@@ -720,6 +720,14 @@ struct ref_store {
 	struct ref_store *parent;
 };
 
+static inline struct ref_store *ref_store_top(struct ref_store *refs)
+{
+	while (refs->parent != NULL)
+		refs = refs->parent;
+
+	return refs;
+}
+
 /*
  * Fill in the generic part of refs and add it to our collection of
  * reference stores.
