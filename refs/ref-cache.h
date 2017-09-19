@@ -22,6 +22,11 @@ struct ref_cache {
 	 * NULL.
 	 */
 	fill_ref_dir_fn *fill_ref_dir;
+
+	/*
+	 * Git directory this ref cache is based in
+	 */
+	char *gitdir;
 };
 
 /*
@@ -182,7 +187,8 @@ struct ref_entry *create_ref_entry(const char *refname,
  * too.
  */
 struct ref_cache *create_ref_cache(struct ref_store *refs,
-				   fill_ref_dir_fn *fill_ref_dir);
+				   fill_ref_dir_fn *fill_ref_dir,
+				   const char *gitdir);
 
 /*
  * Free the `ref_cache` and all of its associated data.

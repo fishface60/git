@@ -43,13 +43,15 @@ struct ref_entry *create_ref_entry(const char *refname,
 }
 
 struct ref_cache *create_ref_cache(struct ref_store *refs,
-				   fill_ref_dir_fn *fill_ref_dir)
+				   fill_ref_dir_fn *fill_ref_dir,
+				   const char *gitdir)
 {
 	struct ref_cache *ret = xcalloc(1, sizeof(*ret));
 
 	ret->ref_store = refs;
 	ret->fill_ref_dir = fill_ref_dir;
 	ret->root = create_dir_entry(ret, "", 0, 1);
+	ret->gitdir = xstrdup(gitdir);
 	return ret;
 }
 
@@ -70,6 +72,7 @@ static void free_ref_entry(struct ref_entry *entry)
 void free_ref_cache(struct ref_cache *cache)
 {
 	free_ref_entry(cache->root);
+	free(cache->gitdir);
 	free(cache);
 }
 

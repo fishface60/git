@@ -27,16 +27,21 @@ struct files_ref_store {
 	char *gitdir;
 	char *gitcommondir;
 
-	struct ref_cache *loose;
+	struct ref_cache *commondir_loose;
+	struct ref_cache *gitdir_loose;
 
 	struct ref_store *packed_ref_store;
 };
 
-static void clear_loose_ref_cache(struct files_ref_store *refs)
+static void clear_loose_ref_caches(struct files_ref_store *refs)
 {
-	if (refs->loose) {
-		free_ref_cache(refs->loose);
-		refs->loose = NULL;
+	if (refs->commondir_loose) {
+		free_ref_cache(refs->commondir_loose);
+		refs->commondir_loose = NULL;
+	}
+	if (refs->gitdir_loose) {
+		free_ref_cache(refs->gitdir_loose);
+		refs->gitdir_loose = NULL;
 	}
 }
 
@@ -156,7 +161,7 @@ static void loose_fill_ref_dir(struct ref_store *ref_store,
 	struct strbuf path = STRBUF_INIT;
 	size_t path_baselen;
 
-	files_ref_path(refs, &path, dirname);
+	strbuf_addf(&path, "%s/%s", dir->cache->gitdir, dirname);
 	path_baselen = path.len;
 
 	d = opendir(path.buf);
@@ -221,44 +226,41 @@ static void loose_fill_ref_dir(struct ref_store *ref_store,
 	strbuf_release(&refname);
 	strbuf_release(&path);
 	closedir(d);
-
-	/*
-	 * Manually add refs/bisect, which, being per-worktree, might
-	 * not appear in the directory listing for refs/ in the main
-	 * repo.
-	 */
-	if (!strcmp(dirname, "refs/")) {
-		int pos = search_ref_dir(dir, "refs/bisect/", 12);
-
-		if (pos < 0) {
-			struct ref_entry *child_entry = create_dir_entry(
-					dir->cache, "refs/bisect/", 12, 1);
-			add_entry_to_dir(dir, child_entry);
-		}
-	}
 }
 
-static struct ref_cache *get_loose_ref_cache(struct files_ref_store *refs)
+static struct ref_cache *get_loose_ref_cache(struct files_ref_store *refs,
+                                             struct ref_cache **cache,
+                                             const char *gitdir)
 {
-	if (!refs->loose) {
+	if (!*cache) {
 		/*
 		 * Mark the top-level directory complete because we
 		 * are about to read the only subdirectory that can
 		 * hold references:
 		 */
-		refs->loose = create_ref_cache(&refs->base, loose_fill_ref_dir);
+		*cache = create_ref_cache(&refs->base, loose_fill_ref_dir, gitdir);
 
 		/* We're going to fill the top level ourselves: */
-		refs->loose->root->flag &= ~REF_INCOMPLETE;
+		(*cache)->root->flag &= ~REF_INCOMPLETE;
 
 		/*
 		 * Add an incomplete entry for "refs/" (to be filled
 		 * lazily):
 		 */
-		add_entry_to_dir(get_ref_dir(refs->loose->root),
-				 create_dir_entry(refs->loose, "refs/", 5, 1));
+		add_entry_to_dir(get_ref_dir((*cache)->root),
+				 create_dir_entry((*cache), "refs/", 5, 1));
 	}
-	return refs->loose;
+	return (*cache);
+}
+
+static struct ref_cache *get_commondir_loose_ref_cache(struct files_ref_store *refs)
+{
+	return get_loose_ref_cache(refs, &refs->commondir_loose, refs->gitcommondir);
+}
+
+static struct ref_cache *get_gitdir_loose_ref_cache(struct files_ref_store *refs)
+{
+	return get_loose_ref_cache(refs, &refs->gitdir_loose, refs->gitdir);
 }
 
 static int files_read_raw_ref(struct ref_store *ref_store,
@@ -746,8 +748,17 @@ static struct ref_iterator *files_ref_iterator_begin(
 	 * disk, and re-reads it if not.
 	 */
 
-	loose_iter = cache_ref_iterator_begin(get_loose_ref_cache(refs),
+	loose_iter = cache_ref_iterator_begin(get_commondir_loose_ref_cache(refs),
 					      prefix, 1);
+
+	/*
+	 * If we've got a different gitdir to our commondir we need to search both
+	 */
+	if (strcmp(refs->gitdir, refs->gitcommondir)) {
+		struct ref_iterator *gitdir_iter = cache_ref_iterator_begin(
+				get_gitdir_loose_ref_cache(refs), prefix, 1);
+		loose_iter = overlay_ref_iterator_begin(gitdir_iter, loose_iter);
+	}
 
 	/*
 	 * The packed-refs file might contain broken references, for
@@ -1073,7 +1084,7 @@ static int files_pack_refs(struct ref_store *ref_store, unsigned int flags)
 
 	packed_refs_lock(refs->packed_ref_store, LOCK_DIE_ON_ERROR, &err);
 
-	iter = cache_ref_iterator_begin(get_loose_ref_cache(refs), NULL, 0);
+	iter = cache_ref_iterator_begin(get_commondir_loose_ref_cache(refs), NULL, 0);
 	while ((ok = ref_iterator_advance(iter)) == ITER_OK) {
 		/*
 		 * If the loose reference can be packed, add an entry
@@ -1626,7 +1637,7 @@ static int commit_ref_update(struct files_ref_store *refs,
 {
 	files_assert_main_repository(refs, "commit_ref_update");
 
-	clear_loose_ref_cache(refs);
+	clear_loose_ref_caches(refs);
 	if (files_log_ref_write(refs, lock->ref_name,
 				&lock->old_oid, oid,
 				logmsg, 0, err)) {
@@ -2641,7 +2652,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 			}
 		}
 		if (update->flags & REF_NEEDS_COMMIT) {
-			clear_loose_ref_cache(refs);
+			clear_loose_ref_caches(refs);
 			if (commit_ref(lock)) {
 				strbuf_addf(err, "couldn't set '%s'", lock->ref_name);
 				unlock_ref(lock);
@@ -2709,7 +2720,7 @@ static int files_transaction_finish(struct ref_store *ref_store,
 		}
 	}
 
-	clear_loose_ref_cache(refs);
+	clear_loose_ref_caches(refs);
 
 cleanup:
 	files_transaction_cleanup(refs, transaction);
