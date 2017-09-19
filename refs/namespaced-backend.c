@@ -162,8 +162,6 @@ static int namespaced_transaction_prepare(struct ref_store *ref_store,
 	ret = refs->lower->be->transaction_prepare(refs->lower, transaction,
 	                                           err);
 
-	/* TODO: Fix missing ref update for namespaced HEAD */
-
 	return ret;
 }
 static int namespaced_transaction_finish(struct ref_store *ref_store,
@@ -196,8 +194,6 @@ static int namespaced_initial_transaction_commit(
 
 	ret = refs->lower->be->initial_transaction_commit(
 			refs->lower, transaction, err);
-
-	/* TODO: Fix missing ref update for namespaced HEAD */
 
 	return ret;
 }
@@ -319,14 +315,6 @@ static int namespaced_ref_iterator_advance(struct ref_iterator *ref_iterator)
 		assert(skip_prefix(iter->lower->refname, iter->prefix,
 		                   &iter->base.refname));
 
-		/* Pseudorefs should not be returned via iteration.
-		   files backend usually handles this by iterating from refs/,
-		   but as namespaced head is in refs we must skip it. */
-		/* TODO: Would be better to call is_pseudoref_syntax */
-		/* TODO: Perhaps prefix for iter should include the refs/ at the end! */
-		if (!starts_with(iter->base.refname, "refs/"))
-			continue;
-
 		return ITER_OK;
 	}
 
@@ -386,14 +374,7 @@ static struct ref_iterator *namespaced_iterator_begin(
 	struct ref_iterator *lower, *ret;
 	struct strbuf sb = STRBUF_INIT;
 
-	/* TODO: Pseudorefs aren't namespaced, but appear in the namespace.
-	         Pseudorefs can only appear if there's no prefix or it's ""
-	         at which point stripping the namespace off and filtering works,
-	         so if we've got a prefix we prepend the namespace,
-	         and if we don't we filter post-hoc.
-	*/
-	if (prefix && *prefix)
-		prefix = add_namespace(&sb, refs, prefix);
+	prefix = add_namespace(&sb, refs, prefix && *prefix ? prefix : "refs/");
 
 	lower = refs->lower->be->iterator_begin(
 			refs->lower, prefix, flags);
