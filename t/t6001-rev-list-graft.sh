@@ -20,7 +20,8 @@ test_expect_success setup '
 	git commit -a -m "Third in one history." &&
 	A2=$(git rev-parse --verify HEAD) &&
 
-	rm -f .git/refs/heads/master .git/index &&
+	rm -f .git/index &&
+	git update-ref -d refs/heads/master &&
 
 	echo >fileA fileA again &&
 	echo >subdir/fileB fileB again &&
