@@ -77,13 +77,13 @@ test_expect_success 'for_each_reflog()' '
 test_expect_success 'for_each_reflog_ent()' '
 	$RUN for-each-reflog-ent HEAD >actual && cat actual &&
 	head -n1 actual | grep first &&
-	tail -n2 actual | head -n1 | grep master.to.new
+	tail -n1 | grep master.to.new
 '
 
 test_expect_success 'for_each_reflog_ent_reverse()' '
 	$RUN for-each-reflog-ent-reverse HEAD >actual &&
 	head -n1 actual | grep master.to.new &&
-	tail -n2 actual | head -n1 | grep first
+	tail -n1 | grep first
 '
 
 test_expect_success 'reflog_exists(HEAD)' '
