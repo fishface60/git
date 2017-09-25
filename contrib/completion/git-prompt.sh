@@ -426,35 +426,24 @@ __git_ps1 ()
 
 		if [ -n "$b" ]; then
 			:
-		elif [ -h "$g/HEAD" ]; then
-			# symlink symbolic ref
-			b="$(git symbolic-ref HEAD 2>/dev/null)"
-		else
-			local head=""
-			if ! __git_eread "$g/HEAD" head; then
-				return $exit
-			fi
-			# is it a symbolic ref?
-			b="${head#ref: }"
-			if [ "$head" = "$b" ]; then
-				detached=yes
-				b="$(
-				case "${GIT_PS1_DESCRIBE_STYLE-}" in
-				(contains)
-					git describe --contains HEAD ;;
-				(branch)
-					git describe --contains --all HEAD ;;
-				(tag)
-					git describe --tags HEAD ;;
-				(describe)
-					git describe HEAD ;;
-				(* | default)
-					git describe --tags --exact-match HEAD ;;
-				esac 2>/dev/null)" ||
+		elif ! b="$(git symbolic-ref -q HEAD)"; then
+			detached=yes
+			b="$(
+			case "${GIT_PS1_DESCRIBE_STYLE-}" in
+			(contains)
+				git describe --contains HEAD ;;
+			(branch)
+				git describe --contains --all HEAD ;;
+			(tag)
+				git describe --tags HEAD ;;
+			(describe)
+				git describe HEAD ;;
+			(* | default)
+				git describe --tags --exact-match HEAD ;;
+			esac 2>/dev/null)" ||
 
-				b="$short_sha..."
-				b="($b)"
-			fi
+			b="$short_sha..."
+			b="($b)"
 		fi
 	fi
 
