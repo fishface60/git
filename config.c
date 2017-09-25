@@ -61,6 +61,28 @@ struct config_source {
 static struct config_source *cf;
 static struct key_value_info *current_config_kvi;
 
+#ifndef NO_PTHREADS
+static pthread_mutex_t cf_mut;
+static int cf_mut_initialized = 0;
+#endif
+static void get_cf(void)
+{
+#ifndef NO_PTHREADS
+	if (!cf_mut_initialized) {
+		init_recursive_mutex(&cf_mut);
+		cf_mut_initialized = 1;
+	}
+	pthread_mutex_lock(&cf_mut);
+#endif
+}
+
+static void put_cf(void)
+{
+#ifndef NO_PTHREADS
+	pthread_mutex_unlock(&cf_mut);
+#endif
+}
+
 /*
  * Similar to the variables above, this gives access to the "scope" of the
  * current value (repo, global, etc). For cached values, it can be found via
@@ -281,13 +303,15 @@ int git_config_include(const char *var, const char *value, void *data)
 	int cond_len;
 	int ret;
 
+	get_cf();
+
 	/*
 	 * Pass along all values, including "include" directives; this makes it
 	 * possible to query information on the includes themselves.
 	 */
 	ret = inc->fn(var, value, inc->data);
 	if (ret < 0)
-		return ret;
+		goto done;
 
 	if (!strcmp(var, "include.path"))
 		ret = handle_path_include(value, inc);
@@ -297,6 +321,8 @@ int git_config_include(const char *var, const char *value, void *data)
 	    !strcmp(key, "path"))
 		ret = handle_path_include(value, inc);
 
+done:
+	put_cf();
 	return ret;
 }
 
@@ -408,13 +434,17 @@ int git_config_parse_parameter(const char *text,
 			       config_fn_t fn, void *data)
 {
 	const char *value;
-	char *canonical_name;
+	char *canonical_name = NULL;
 	struct strbuf **pair;
 	int ret;
 
+	get_cf();
+
 	pair = strbuf_split_str(text, '=', 2);
-	if (!pair[0])
-		return error("bogus config parameter: %s", text);
+	if (!pair[0]) {
+		ret = error("bogus config parameter: %s", text);
+		goto done;
+	}
 
 	if (pair[0]->len && pair[0]->buf[pair[0]->len - 1] == '=') {
 		strbuf_setlen(pair[0], pair[0]->len - 1);
@@ -425,17 +455,19 @@ int git_config_parse_parameter(const char *text,
 
 	strbuf_trim(pair[0]);
 	if (!pair[0]->len) {
-		strbuf_list_free(pair);
-		return error("bogus config parameter: %s", text);
+		ret = error("bogus config parameter: %s", text);
+		goto done;
 	}
 
 	if (git_config_parse_key(pair[0]->buf, &canonical_name, NULL)) {
 		ret = -1;
 	} else {
 		ret = (fn(canonical_name, value, data) < 0) ? -1 : 0;
-		free(canonical_name);
 	}
+done:
+	free(canonical_name);
 	strbuf_list_free(pair);
+	put_cf();
 	return ret;
 }
 
@@ -451,6 +483,8 @@ int git_config_from_parameters(config_fn_t fn, void *data)
 
 	if (!env)
 		return 0;
+
+	get_cf();
 
 	memset(&source, 0, sizeof(source));
 	source.prev = cf;
@@ -476,6 +510,7 @@ out:
 	free(argv);
 	free(envw);
 	cf = source.prev;
+	put_cf();
 	return ret;
 }
 
@@ -870,6 +905,8 @@ static void die_bad_number(const char *name, const char *value)
 
 	if (!value)
 		value = "";
+
+	get_cf();
 
 	if (!(cf && cf->name))
 		die(_("bad numeric config value '%s' for '%s': %s"),
@@ -1393,6 +1430,8 @@ static int do_config_from(struct config_source *top, config_fn_t fn, void *data)
 {
 	int ret;
 
+	get_cf();
+
 	/* push config-file parsing state stack */
 	top->prev = cf;
 	top->linenr = 1;
@@ -1407,6 +1446,8 @@ static int do_config_from(struct config_source *top, config_fn_t fn, void *data)
 	strbuf_release(&top->value);
 	strbuf_release(&top->var);
 	cf = top->prev;
+
+	put_cf();
 
 	return ret;
 }
